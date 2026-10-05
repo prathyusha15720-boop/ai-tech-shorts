@@ -1,35 +1,24 @@
 import os
 import logging
-from google import genai
+from gtts import gTTS
 
 logger = logging.getLogger(__name__)
 
 def generate_tts_narration(script_text, output_audio_path="output.mp3"):
     """
-    Generates audio TTS narration using Google Gemini API.
+    Generates audio TTS narration using Google Text-to-Speech (gTTS).
     """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    tts_model = os.environ.get("GEMINI_TTS_MODEL", "gemini-2.5-flash")
-    voice_name = os.environ.get("TTS_VOICE", "Kore")
-
-    if not api_key:
-        logger.error("GEMINI_API_KEY is not set.")
+    if not script_text:
+        logger.error("Script text is empty. Cannot generate TTS.")
         return None
 
-    client = genai.Client(api_key=api_key)
-
     try:
-        # Requesting audio generation from Gemini
-        response = client.models.generate_content(
-            model=tts_model,
-            contents=f"Read this tech news script aloud naturally and clearly: {script_text}",
-            config={"response_mime_type": "audio/mp3"}
-        )
+        logger.info("Generating TTS narration using gTTS...")
+        # Converting text to speech using gTTS
+        tts = gTTS(text=script_text, lang='en', slow=False)
+        tts.save(output_audio_path)
 
-        with open(output_audio_path, "wb") as f:
-            f.write(response.candidates[0].content.parts[0].inline_data.data)
-
-        logger.info(f"Audio file saved to {output_audio_path}")
+        logger.info(f"Audio file saved successfully to {output_audio_path}")
         return output_audio_path
     except Exception as e:
         logger.error(f"Failed to generate TTS audio: {e}")
