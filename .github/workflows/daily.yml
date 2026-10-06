@@ -48,10 +48,10 @@ jobs:
           python main.py
 
       - name: Commit updated content log back to repo
-    run: |
-      git config --local user.email "action@github.com"
-      git config --local user.name "GitHub Actions"
-      git pull origin main --rebase
-      git add content_log.xlsx
-      git commit -m "Automated content log update" || exit 0
-      git push origin main
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Actions"
+          git pull origin main --rebase
+          git add content_log.xlsx
+          git commit -m "Automated content log update" || exit 0
+          git push origin main
