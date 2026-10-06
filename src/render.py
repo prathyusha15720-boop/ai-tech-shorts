@@ -54,9 +54,9 @@ def render_short_video(content_payload, audio_path, output_filename="output_shor
         img_path = create_scene_image(scene, idx)
         scene_images.append(img_path)
 
-    # Simple FFmpeg command to merge first frame with audio into vertical short
     first_image = scene_images[0]
     
+    # Updated FFmpeg Command with proper framerate and vertical scaling filter
     cmd = [
         "ffmpeg",
         "-y",
@@ -65,6 +65,8 @@ def render_short_video(content_payload, audio_path, output_filename="output_shor
         "-i", audio_path,
         "-c:v", "libx264",
         "-tune", "stillimage",
+        "-r", "30",
+        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",

@@ -1,0 +1,9 @@
+client_secret.json
+token.json
+temp_scenes/
+output*.mp4
+output*.mp3
+*.xlsx
+__pycache__/
+client_secret.json
+token.json
