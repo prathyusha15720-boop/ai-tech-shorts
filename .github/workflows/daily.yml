@@ -48,12 +48,12 @@ jobs:
           python main.py
 
       - name: Commit updated content log back to repo
-  run: |
-    git config --local user.name "github-actions[bot]"
-    git config --local user.email "github-actions[bot]@users.noreply.github.com"
-    git stash
-    git pull origin main --rebase -X theirs || git rebase --abort
-    git stash pop || true
-    git add content_log.xlsx
-    git commit -m "Automated content log update" || echo "No changes to commit"
-    git push origin main
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git stash
+          git pull origin main --rebase -X theirs || git rebase --abort
+          git stash pop || true
+          git add content_log.xlsx
+          git commit -m "Automated content log update" || echo "No changes to commit"
+          git push origin main
