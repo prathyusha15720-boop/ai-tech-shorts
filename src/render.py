@@ -65,7 +65,7 @@ def get_audio_duration(audio_path):
 
 def render_short_video(content_payload, audio_path, output_filename="output_short.mp4"):
     """
-    Renders a multi-scene 1080x1920 MP4 video slideshow with smooth zoompan motion and audio.
+    Renders a multi-scene 1080x1920 MP4 video slideshow using robust filter_complex.
     """
     scenes = content_payload.get("scenes", [])
     if not scenes:
@@ -79,39 +79,50 @@ def render_short_video(content_payload, audio_path, output_filename="output_shor
         scene_images.append(img_path)
 
     audio_duration = get_audio_duration(audio_path)
-    duration_per_scene = audio_duration / max(len(scenes), 1)
+    num_scenes = max(len(scenes), 1)
+    duration_per_scene = audio_duration / num_scenes
+    # Calculate frames per scene (assuming 30 fps)
+    fps = 30
+    frames_per_scene = int(duration_per_scene * fps)
 
-    # Create FFmpeg concat input file for multi-scene slideshow
-    concat_file = os.path.join(output_dir, "concat.txt")
-    with open(concat_file, "w") as f:
-        for img_path in scene_images:
-            abs_img_path = os.path.abspath(img_path).replace("\\", "/")
-            f.write(f"file '{abs_img_path}'\n")
-            f.write(f"duration {duration_per_scene:.2f}\n")
-        # Repeat last frame briefly to prevent cutoffs
-        if scene_images:
-            last_img_path = os.path.abspath(scene_images[-1]).replace("\\", "/")
-            f.write(f"file '{last_img_path}'\n")
+    # Build FFmpeg command inputs for each image
+    cmd = ["ffmpeg", "-y"]
+    for img_path in scene_images:
+        cmd.extend(["-loop", "1", "-t", f"{duration_per_scene:.2f}", "-i", img_path])
+    
+    # Add audio input
+    cmd.extend(["-i", audio_path])
 
-    # FFmpeg Command with zoompan (moving/cinematic effect) and audio merging
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-f", "concat",
-        "-safe", "0",
-        "-i", concat_file,
-        "-i", audio_path,
-        "-vf", "zoompan=z='min(zoom+0.0015,1.15)':d=125:s=1080x1920,format=yuv420p",
+    # Build filter_complex string to scale, zoompan, and concatenate all scene images
+    filter_parts = []
+    concat_inputs = []
+    for i in range(num_scenes):
+        # Apply scaling and stable zoompan to each individual input stream
+        filter_parts.append(
+            f"[{i}:v]scale=1080:1920,zoompan=z='min(zoom+0.0015,1.15)':d={frames_per_scene}:s=1080x1920:fps={fps}[v{i}]"
+        )
+        concat_inputs.append(f"[v{i}]")
+
+    # Concatenate all processed video streams together
+    concat_filter = "".join(concat_inputs) + f"concat=n={num_scenes}:v=1:a=0[outv]"
+    filter_parts.append(concat_filter)
+
+    filter_complex_str = ";".join(filter_parts)
+
+    cmd.extend([
+        "-filter_complex", filter_complex_str,
+        "-map", "[outv]",
+        "-map", f"{num_scenes}:a",
         "-c:v", "libx264",
-        "-tune", "stillimage",
+        "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "192k",
         "-shortest",
         output_filename
-    ]
+    ])
 
     try:
-        logger.info(f"Running FFmpeg multi-scene render: {' '.join(cmd)}")
+        logger.info(f"Running robust FFmpeg filter_complex render...")
         subprocess.run(cmd, check=True)
         return output_filename
     except Exception as e:
