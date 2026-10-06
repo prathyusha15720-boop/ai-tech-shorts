@@ -57,15 +57,16 @@ def render_short_video(content_payload, audio_path, output_filename="output_shor
     first_image = scene_images[0]
     
     # Updated FFmpeg Command with proper framerate and vertical scaling filter
+    # Updated FFmpeg Command with proper input framerate before -i
     cmd = [
         "ffmpeg",
         "-y",
+        "-framerate", "30",
         "-loop", "1",
         "-i", first_image,
         "-i", audio_path,
         "-c:v", "libx264",
         "-tune", "stillimage",
-        "-r", "30",
         "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
         "-c:a", "aac",
         "-b:a", "192k",
