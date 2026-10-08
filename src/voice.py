@@ -15,7 +15,7 @@ def generate_tts_narration(script_text, output_audio_path="output.mp3"):
     try:
         logger.info("Generating TTS narration using gTTS...")
         # Converting text to speech using gTTS
-        tts = gTTS(text=script_text, lang='en', slow=False)
+        tts = gTTS(text=script_text, lang='te', slow=False)
         tts.save(output_audio_path)
 
         logger.info(f"Audio file saved successfully to {output_audio_path}")

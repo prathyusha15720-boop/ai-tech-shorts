@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 def generate_script_and_scenes(news_item):
     """
-    Generates YouTube Shorts script and scene instructions using Gemini.
+    Generates YouTube Shorts script and multiple dynamic scenes instructions using Gemini.
     """
     api_key = os.environ.get("GEMINI_API_KEY")
     model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
@@ -19,26 +19,48 @@ def generate_script_and_scenes(news_item):
     client = genai.Client(api_key=api_key)
 
     prompt = f"""
-    You are an expert YouTube Shorts content creator specializing in tech news.
+    You are an expert YouTube Shorts content creator specializing in tech news for a Telugu audience.
     Based on the following tech news headline and context, generate a complete content payload for a 30-45 second short video.
 
     News Title: {news_item.get('title')}
     News Summary: {news_item.get('summary')}
     News Link: {news_item.get('link')}
 
-    Return ONLY a valid JSON object matching this structure:
+    CRITICAL INSTRUCTIONS:
+    1. The "script" and scene "text_overlay" MUST be written in natural, engaging spoken Telugu language.
+    2. You MUST generate **MULTIPLE distinct scenes (at least 4 to 6 scenes)** inside the "scenes" array so the video changes backgrounds, places, persons, and things dynamically corresponding to the narration.
+    3. Each scene must have a unique `image_keyword` representing different places, persons, or technical objects.
+
+    Return ONLY a valid JSON object matching this exact structure:
     {{
-        "title": "Catchy YouTube Shorts Title (with hashtags)",
-        "description": "Engaging video description with credits and links",
-        "tags": ["tech", "ai", "news", "shorts"],
-        "script": "Full spoken narration text for TTS. Make it fast-paced, direct, and engaging.",
+        "title": "Catchy YouTube Shorts Title in Telugu/English with hashtags",
+        "description": "Engaging video description",
+        "tags": ["tech", "telugu", "ai", "news", "shorts"],
+        "script": "Full spoken narration text strictly in Telugu. Make it fast-paced, direct, and engaging.",
         "scenes": [
             {{
                 "scene_number": 1,
                 "duration_seconds": 5,
-                "text_overlay": "Short Punchy On-Screen Text",
-                "bg_color": "#1A1A1A",
-                "text_color": "#FFFFFF"
+                "text_overlay": "Short Punchy Telugu Text for Scene 1",
+                "image_keyword": "futuristic AI data center server room"
+            }},
+            {{
+                "scene_number": 2,
+                "duration_seconds": 5,
+                "text_overlay": "Telugu Text for Scene 2",
+                "image_keyword": "software developer coding on laptop office"
+            }},
+            {{
+                "scene_number": 3,
+                "duration_seconds": 5,
+                "text_overlay": "Telugu Text for Scene 3",
+                "image_keyword": "modern smartphone futuristic hologram interface"
+            }},
+            {{
+                "scene_number": 4,
+                "duration_seconds": 5,
+                "text_overlay": "Telugu Text for Scene 4",
+                "image_keyword": "global cybersecurity digital network map"
             }}
         ]
     }}

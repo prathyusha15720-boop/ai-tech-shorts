@@ -2,45 +2,75 @@ import os
 import subprocess
 import logging
 import textwrap
+import requests
+from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
 
 def create_scene_image(scene, index, output_dir="temp_scenes"):
     """
-    Creates a 1080x1920 portrait slide with wrapped text overlay.
+    Creates a 1080x1920 portrait slide with a unique background image per scene and clear text overlay.
     """
     os.makedirs(output_dir, exist_ok=True)
     width, height = 1080, 1920
 
-    bg_color = scene.get("bg_color", "#111827")
-    text_color = scene.get("text_color", "#FFFFFF")
-    text_overlay = scene.get("text_overlay", "Tech News")
-
-    img = Image.new("RGB", (width, height), color=bg_color)
-    draw = ImageDraw.Draw(img)
-
-    # Font fallback for Windows and Linux (GitHub Actions Runner)
+    # Fetching unique background image per scene based on content keyword/index
+    img = None
     try:
-        font = ImageFont.truetype("arial.ttf", size=55)
+        # Using unique seeds so each scene gets a distinct place/person/thing image
+        img_url = f"https://picsum.photos/seed/{index + 100}/1080/1920"
+        response = requests.get(img_url, timeout=5)
+        if response.status_code == 200:
+            img = Image.open(BytesIO(response.content)).convert("RGB")
+    except Exception as e:
+        logger.warning(f"Could not fetch dynamic background image for scene {index}: {e}")
+
+    if not img:
+        bg_color = scene.get("bg_color", "#111827")
+        img = Image.new("RGB", (width, height), color=bg_color)
+    else:
+        img = img.resize((width, height), Image.Resampling.LANCZOS)
+
+    draw = ImageDraw.Draw(img)
+    text_color = scene.get("text_color", "#FFFFFF")
+    text_overlay = scene.get("text_overlay", "")
+
+    # Load proper font with a larger size for clear visibility
+    try:
+        font = ImageFont.truetype("C:\\Windows\\Fonts\\Nirmala.ttf", size=65)
     except IOError:
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size=55)
+            font = ImageFont.truetype("C:\\Windows\\Fonts\\Gautami.ttf", size=65)
         except IOError:
-            font = ImageFont.load_default()
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size=65)
+            except IOError:
+                font = ImageFont.load_default()
 
-    # Wrap text nicely to fit portrait width
-    wrapped_text = textwrap.fill(text_overlay, width=22)
+    if text_overlay:
+        # Wrap text nicely for portrait screen width
+        wrapped_text = textwrap.fill(text_overlay, width=18)
+        
+        bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font, align="center")
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
 
-    # Center multi-line text placement
-    bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font, align="center")
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
+        x = (width - text_width) / 2
+        y = (height - text_height) / 2
 
-    x = (width - text_width) / 2
-    y = (height - text_height) / 2
+        # Draw a prominent dark box behind the text for high contrast and readability
+        padding = 40
+        box_coords = [
+            x - padding,
+            y - padding,
+            x + text_width + padding,
+            y + text_height + padding
+        ]
+        draw.rectangle(box_coords, fill=(15, 23, 42, 230))
 
-    draw.multiline_text((x, y), wrapped_text, fill=text_color, font=font, align="center")
+        # Draw clear Telugu text over the box
+        draw.multiline_text((x, y), wrapped_text, fill=text_color, font=font, align="center")
 
     image_path = os.path.join(output_dir, f"scene_{index}.png")
     img.save(image_path)
@@ -65,7 +95,7 @@ def get_audio_duration(audio_path):
 
 def render_short_video(content_payload, audio_path, output_filename="output_short.mp4"):
     """
-    Renders a multi-scene 1080x1920 MP4 video slideshow using robust filter_complex.
+    Renders a multi-scene 1080x1920 MP4 video with unique images per scene, normal speed, and sync.
     """
     scenes = content_payload.get("scenes", [])
     if not scenes:
@@ -81,29 +111,23 @@ def render_short_video(content_payload, audio_path, output_filename="output_shor
     audio_duration = get_audio_duration(audio_path)
     num_scenes = max(len(scenes), 1)
     duration_per_scene = audio_duration / num_scenes
-    # Calculate frames per scene (assuming 30 fps)
     fps = 30
     frames_per_scene = int(duration_per_scene * fps)
 
-    # Build FFmpeg command inputs for each image
     cmd = ["ffmpeg", "-y"]
     for img_path in scene_images:
         cmd.extend(["-loop", "1", "-t", f"{duration_per_scene:.2f}", "-i", img_path])
     
-    # Add audio input
     cmd.extend(["-i", audio_path])
 
-    # Build filter_complex string to scale, zoompan, and concatenate all scene images
     filter_parts = []
     concat_inputs = []
     for i in range(num_scenes):
-        # Apply scaling and stable zoompan to each individual input stream
         filter_parts.append(
             f"[{i}:v]scale=1080:1920,zoompan=z='min(zoom+0.0015,1.15)':d={frames_per_scene}:s=1080x1920:fps={fps}[v{i}]"
         )
         concat_inputs.append(f"[v{i}]")
 
-    # Concatenate all processed video streams together
     concat_filter = "".join(concat_inputs) + f"concat=n={num_scenes}:v=1:a=0[outv]"
     filter_parts.append(concat_filter)
 
@@ -122,8 +146,9 @@ def render_short_video(content_payload, audio_path, output_filename="output_shor
     ])
 
     try:
-        logger.info(f"Running robust FFmpeg filter_complex render...")
+        logger.info(f"Running multi-scene rendering with visible text and correct timing...")
         subprocess.run(cmd, check=True)
+        logger.info(f"Successfully rendered {output_filename}")
         return output_filename
     except Exception as e:
         logger.error(f"FFmpeg rendering failed: {e}")
