@@ -15,7 +15,7 @@ def upload_to_youtube(video_file_path, content_payload):
         logger.error("token.json not found. Run auth_once.py first.")
         return False
 
-    privacy_status = os.environ.get("YOUTUBE_PRIVACY_STATUS", "private")
+    privacy_status = os.environ.get("YOUTUBE_PRIVACY_STATUS", "public")
 
     try:
         creds = Credentials.from_authorized_user_file(token_file)

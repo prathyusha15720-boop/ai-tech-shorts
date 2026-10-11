@@ -43,7 +43,7 @@ jobs:
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
           GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
           TTS_VOICE: ${{ vars.TTS_VOICE }}
-          YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS }}
+          YOUTUBE_PRIVACY_STATUS: public
         run: |
           python main.py
 
