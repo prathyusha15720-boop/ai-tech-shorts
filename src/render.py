@@ -3,26 +3,45 @@ import subprocess
 import logging
 import textwrap
 import requests
-from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont
+import io
+from PIL import Image, ImageOps, ImageDraw
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 
 logger = logging.getLogger(__name__)
 
+# Configure matplotlib to support Telugu fonts natively on Windows
+font_paths = [
+    r"C:\Windows\Fonts\Nirmala.ttf",
+    r"C:\Windows\Fonts\NirmalaB.ttf",
+    r"C:\Windows\Fonts\Gautami.ttf"
+]
+for f_path in font_paths:
+    if os.path.exists(f_path):
+        fm.fontManager.addfont(f_path)
+        prop = fm.FontProperties(fname=f_path)
+        plt.rcParams['font.sans-serif'] = prop.get_name()
+        break
+
+plt.rcParams['axes.unicode_minus'] = False
+
 def create_scene_image(scene, index, output_dir="temp_scenes"):
     """
-    Creates a 1080x1920 portrait slide with a unique background image per scene and clear text overlay.
+    Creates a 1080x1920 portrait slide with unique background and robust Telugu text rendering via Matplotlib.
     """
     os.makedirs(output_dir, exist_ok=True)
     width, height = 1080, 1920
 
-    # Fetching unique background image per scene based on content keyword/index
+    # Guaranteed unique background image per scene
     img = None
     try:
-        # Using unique seeds so each scene gets a distinct place/person/thing image
-        img_url = f"https://picsum.photos/seed/{index + 100}/1080/1920"
+        keyword = scene.get('image_keyword', 'tech')
+        unique_seed = (index + 1) * 137 + sum(ord(c) for c in keyword)
+        img_url = f"https://picsum.photos/seed/{unique_seed}/1080/1920"
+        
         response = requests.get(img_url, timeout=5)
         if response.status_code == 200:
-            img = Image.open(BytesIO(response.content)).convert("RGB")
+            img = Image.open(io.BytesIO(response.content)).convert("RGB")
     except Exception as e:
         logger.warning(f"Could not fetch dynamic background image for scene {index}: {e}")
 
@@ -30,47 +49,53 @@ def create_scene_image(scene, index, output_dir="temp_scenes"):
         bg_color = scene.get("bg_color", "#111827")
         img = Image.new("RGB", (width, height), color=bg_color)
     else:
-        img = img.resize((width, height), Image.Resampling.LANCZOS)
+        img = ImageOps.fit(img, (width, height), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
-    draw = ImageDraw.Draw(img)
-    text_color = scene.get("text_color", "#FFFFFF")
     text_overlay = scene.get("text_overlay", "")
 
-    # Load proper font with a larger size for clear visibility
-    try:
-        font = ImageFont.truetype("C:\\Windows\\Fonts\\Nirmala.ttf", size=65)
-    except IOError:
-        try:
-            font = ImageFont.truetype("C:\\Windows\\Fonts\\Gautami.ttf", size=65)
-        except IOError:
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size=65)
-            except IOError:
-                font = ImageFont.load_default()
-
     if text_overlay:
-        # Wrap text nicely for portrait screen width
-        wrapped_text = textwrap.fill(text_overlay, width=18)
+        # Wrap text nicely for portrait width
+        wrapped_text = textwrap.fill(text_overlay, width=20)
+
+        # Use Matplotlib to render Telugu & English mixed text perfectly
+        fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
+        ax.axis('off')
+        fig.patch.set_facecolor('none')
+        ax.set_facecolor('none')
+
+        # Add text with a stylish rounded background box using the loaded font
+        ax.text(
+            0.5, 0.5, wrapped_text,
+            fontsize=26,
+            color='white',
+            ha='center',
+            va='center',
+            weight='bold',
+            wrap=True,
+            fontproperties=prop if 'prop' in locals() else None,
+            bbox=dict(
+                boxstyle='round,pad=1.2',
+                facecolor='#0f172a',
+                alpha=0.92,
+                edgecolor='#334155',
+                linewidth=2
+            )
+        )
+
+        # Save matplotlib figure to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0, transparent=True)
+        buf.seek(0)
+        text_img = Image.open(buf).convert("RGBA")
+        plt.close(fig)
+
+        # Resize text overlay image to fit nicely
+        text_img.thumbnail((950, 1200))
         
-        bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font, align="center")
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-
-        x = (width - text_width) / 2
-        y = (height - text_height) / 2
-
-        # Draw a prominent dark box behind the text for high contrast and readability
-        padding = 40
-        box_coords = [
-            x - padding,
-            y - padding,
-            x + text_width + padding,
-            y + text_height + padding
-        ]
-        draw.rectangle(box_coords, fill=(15, 23, 42, 230))
-
-        # Draw clear Telugu text over the box
-        draw.multiline_text((x, y), wrapped_text, fill=text_color, font=font, align="center")
+        # Paste the text image onto the center of the background image
+        paste_x = (width - text_img.width) // 2
+        paste_y = (height - text_img.height) // 2
+        img.paste(text_img, (paste_x, paste_y), text_img)
 
     image_path = os.path.join(output_dir, f"scene_{index}.png")
     img.save(image_path)
@@ -124,7 +149,7 @@ def render_short_video(content_payload, audio_path, output_filename="output_shor
     concat_inputs = []
     for i in range(num_scenes):
         filter_parts.append(
-            f"[{i}:v]scale=1080:1920,zoompan=z='min(zoom+0.0015,1.15)':d={frames_per_scene}:s=1080x1920:fps={fps}[v{i}]"
+            f"[{i}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps={fps},zoompan=z='min(zoom+0.001,1.05)':d={frames_per_scene}:s=1080x1920:fps={fps}[v{i}]"
         )
         concat_inputs.append(f"[v{i}]")
 
@@ -146,7 +171,7 @@ def render_short_video(content_payload, audio_path, output_filename="output_shor
     ])
 
     try:
-        logger.info(f"Running multi-scene rendering with visible text and correct timing...")
+        logger.info(f"Running multi-scene rendering with correct aspect ratio and timing...")
         subprocess.run(cmd, check=True)
         logger.info(f"Successfully rendered {output_filename}")
         return output_filename

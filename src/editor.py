@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 def generate_script_and_scenes(news_item):
     """
-    Generates YouTube Shorts script and multiple dynamic scenes instructions using Gemini.
+    Generates YouTube Shorts script (Telugu voiceover) and dynamic scenes instructions (English text overlays) using Gemini.
     """
     api_key = os.environ.get("GEMINI_API_KEY")
     model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
@@ -27,13 +27,14 @@ def generate_script_and_scenes(news_item):
     News Link: {news_item.get('link')}
 
     CRITICAL INSTRUCTIONS:
-    1. The "script" and scene "text_overlay" MUST be written in natural, engaging spoken Telugu language.
-    2. You MUST generate **MULTIPLE distinct scenes (at least 4 to 6 scenes)** inside the "scenes" array so the video changes backgrounds, places, persons, and things dynamically corresponding to the narration.
-    3. Each scene must have a unique `image_keyword` representing different places, persons, or technical objects.
+    1. The "script" MUST be written in natural, engaging spoken Telugu language for the voiceover.
+    2. The scene "text_overlay" MUST be written STRICTLY IN ENGLISH (short, punchy 3-5 word key points/captions).
+    3. You MUST generate **MULTIPLE distinct scenes (at least 4 to 6 scenes)** inside the "scenes" array so the video changes backgrounds, places, persons, and things dynamically corresponding to the narration.
+    4. Each scene must have a unique `image_keyword` representing different places, persons, or technical objects.
 
     Return ONLY a valid JSON object matching this exact structure:
     {{
-        "title": "Catchy YouTube Shorts Title in Telugu/English with hashtags",
+        "title": "Catchy YouTube Shorts Title in English/Telugu with hashtags",
         "description": "Engaging video description",
         "tags": ["tech", "telugu", "ai", "news", "shorts"],
         "script": "Full spoken narration text strictly in Telugu. Make it fast-paced, direct, and engaging.",
@@ -41,25 +42,25 @@ def generate_script_and_scenes(news_item):
             {{
                 "scene_number": 1,
                 "duration_seconds": 5,
-                "text_overlay": "Short Punchy Telugu Text for Scene 1",
+                "text_overlay": "Short Punchy English Text for Scene 1",
                 "image_keyword": "futuristic AI data center server room"
             }},
             {{
                 "scene_number": 2,
                 "duration_seconds": 5,
-                "text_overlay": "Telugu Text for Scene 2",
+                "text_overlay": "Short English Caption for Scene 2",
                 "image_keyword": "software developer coding on laptop office"
             }},
             {{
                 "scene_number": 3,
                 "duration_seconds": 5,
-                "text_overlay": "Telugu Text for Scene 3",
+                "text_overlay": "Short English Caption for Scene 3",
                 "image_keyword": "modern smartphone futuristic hologram interface"
             }},
             {{
                 "scene_number": 4,
                 "duration_seconds": 5,
-                "text_overlay": "Telugu Text for Scene 4",
+                "text_overlay": "Short English Caption for Scene 4",
                 "image_keyword": "global cybersecurity digital network map"
             }}
         ]
